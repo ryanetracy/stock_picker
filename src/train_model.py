@@ -6,7 +6,7 @@ from sklearn.metrics import mean_squared_error
 from datetime import datetime
 
 from src.load_data import load_stocks
-from src.data_etl import prep_columns
+from src.data_etl import *
 from src.model_preprocess import train_test_split_cutoff
 
 # ### parameters (use argparse module)
@@ -99,15 +99,19 @@ def train_model(
         use_polars=True
     )
 
-    df_etl = prep_columns(df=df_raw, col=label)
+    df_feat = build_dataset(df=df_raw, label=label)
 
     X_train, X_test, y_train, y_test = train_test_split_cutoff(
-        df=df_etl, cutoff=cutoff, label=label
+        df=df_feat, cutoff=cutoff, label="label"
     )
 
     model = xgb.XGBRegressor(
         n_estimators=n_estimators,
-        learning_rate=learning_rate
+        learning_rate=learning_rate,
+        max_depth=7,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="reg:squarederror"
     )
 
     model.fit(X_train, y_train)
@@ -115,4 +119,4 @@ def train_model(
     preds = model.predict(X_test)
     mse = mean_squared_error(y_test, preds)
 
-    return model, mse
+    return model, mse, df_feat
