@@ -64,7 +64,6 @@ def prep_data_frame(df):
             .otherwise(pl.lit(0))
             .alias("mon_or_fri")
         )
-        # .drop_nulls()
     )
 
 def build_dataset(df: pl.DataFrame, label: str = "close") -> pl.DataFrame:
@@ -73,7 +72,7 @@ def build_dataset(df: pl.DataFrame, label: str = "close") -> pl.DataFrame:
     if label == "close":
         df_feat = df_feat.with_columns(pl.col("close").shift(-1).alias("label"))
     elif label == "move":
-        df_feat = df_feat.withColumns(pl.col("move").shift(-1).alias("label"))
+        df_feat = df_feat.with_columns(pl.col("move").shift(-1).alias("label"))
     else:
         raise ValueError("label must be one of ['close', 'move']")
 
