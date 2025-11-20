@@ -1,5 +1,6 @@
 
 import polars as pl
+from src.load_data import load_stocks
 
 def prep_columns(df: pl.DataFrame, col: str) -> pl.DataFrame:
     if col == "move":
@@ -12,6 +13,7 @@ def prep_columns(df: pl.DataFrame, col: str) -> pl.DataFrame:
             [
                 "date",
                 "ticker",
+                "volume",
                 col
             ]
         )
@@ -49,7 +51,9 @@ def prep_data_frame(df):
         if df_out is None:
             df_out = df_prep
         else:
-            df_out = df_prep.join(df_out, on=["date", "ticker"], how="inner")
+            df_out = df_prep.join(
+                df_out, on=["date", "ticker", "volume"], how="inner"
+            )
 
     return (
         df_out.with_columns(
@@ -77,3 +81,30 @@ def build_dataset(df: pl.DataFrame, label: str = "close") -> pl.DataFrame:
         raise ValueError("label must be one of ['close', 'move']")
 
     return df_feat.drop_nulls()
+
+## might not get to do this as the data is empty past 1/30/18
+def build_df_with_indices(
+    df: pl.DataFrame, label: str, start: str, end: str
+) -> pl.DataFrame:
+    indices_list = ["SPY", "QQQ", "IWM", "VXX", "UUP", "HYG", "LQD"]
+    df_idx_out = None
+
+    for idx in indices_list:
+        idx_cl = idx.replace("^", "")
+
+        df_idx = load_stocks([idx], start, end).select(
+            pl.col("date"),
+            pl.col("close").alias(f"{idx_cl}_close"),
+            pl.col("volume").alias(f"{idx_cl}_volume")
+        )
+
+        if df_idx_out is None:
+            df_idx_out = df_idx
+        else:
+            df_idx_out = df_idx_out.join(df_idx, on=["date"], how="inner")
+
+    df_ticker = build_dataset(df, label)
+
+    df_out = df_ticker.join(df_idx_out, on=["date"], how="inner")
+
+    return df_out

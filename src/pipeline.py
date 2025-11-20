@@ -4,10 +4,10 @@ from datetime import datetime
 from typing import Tuple
 
 from src.load_data import load_stocks
-from src.train_model import train_model
+from src.train_model import train_xgb_model
 from src.forecaster import XGBStockForecaster
 
-def train_and_forecast(
+def train_and_forecast_xgb(
     ticker: str,
     start_date: str,
     end_date: str,
@@ -19,7 +19,7 @@ def train_and_forecast(
 ) -> Tuple[pl.DataFrame, float]:
     stocks = [ticker]
 
-    model, mse, df_feat, feature_cols = train_model(
+    model, mse, df_feat, feature_cols = train_xgb_model(
         stocks=stocks,
         start_date=start_date,
         end_date=end_date,

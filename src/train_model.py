@@ -9,7 +9,7 @@ from src.data_etl import *
 from src.model_preprocess import train_test_split_cutoff
 
 
-def train_model(
+def train_xgb_model(
     stocks: list,
     start_date: str,
     end_date: str,

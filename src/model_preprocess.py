@@ -27,7 +27,15 @@ def split_ar_on_cutoff(
     train_pd = train.to_pandas()
     eval_pd = eval.to_pandas()
 
-    cols_list = [label] + exog_feats
+    chg_cols = [
+        # f"prev1_{label}",
+        # f"prev7_{label}",
+        # f"prev30_{label}",
+        # f"{label}_rolling_mean_7",
+        f"{label}_rolling_std_7"
+    ]
+
+    cols_list = [label] + exog_feats + chg_cols
 
     train_pd = train_pd[cols_list]
     eval_pd = eval_pd[cols_list]
