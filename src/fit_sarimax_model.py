@@ -6,7 +6,7 @@ full pipeline for loading the data, training, and forecasting with SARIMAX.
 import polars as pl
 import pandas as pd
 import pmdarima as pm 
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import root_mean_squared_error
 from datetime import datetime, timedelta
 from typing import Tuple
 
@@ -27,7 +27,7 @@ def fit_sarimax(
     """fit the actual SARIMAX model.
 
     has two modes: eval and forecast. eval mode uses the train-eval split to 
-    gauge how accurate the forecasts are (using MSE). forecast mode uses the
+    gauge how accurate the forecasts are (using RMSE). forecast mode uses the
     full dataset to train and make a forecast.
 
     Args:
@@ -42,7 +42,7 @@ def fit_sarimax(
         model performance).
 
     Returns:
-        _type_: output depends on `eval_mode`. returns a float (MSE) if 
+        _type_: output depends on `eval_mode`. returns a float (RMSE) if 
         `eval_mode` is True, or a table (date, predicted value) if `eval_mode` 
         is False.
     """
@@ -109,9 +109,9 @@ def fit_sarimax(
 
         fitted = pd.DataFrame(fitted, columns=["pred"]).reset_index(drop=True)
         df_eval["pred"] = fitted["pred"]
-        mse = mean_squared_error(df_eval[["close"]], df_eval[["pred"]])
+        rmse = root_mean_squared_error(df_eval[["close"]], df_eval[["pred"]])
 
-        return mse
+        return rmse
     else:
         df = df_idx.to_pandas()
 
@@ -175,9 +175,9 @@ def sarimax_wrapper(
 
     Returns:
         Tuple[pl.DataFrame, float]: table of predictions (date, predicted value)
-        and the MSE from training.
+        and the RMSE from training.
     """
-    mse = fit_sarimax(
+    rmse = fit_sarimax(
         ticker,
         start_date,
         end_date,
@@ -197,4 +197,4 @@ def sarimax_wrapper(
         eval_mode=False
     )
 
-    return pl.from_pandas(forecasts), mse
+    return pl.from_pandas(forecasts), rmse

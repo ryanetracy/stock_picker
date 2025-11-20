@@ -38,11 +38,11 @@ def train_and_forecast_xgb(
 
     Returns:
         Tuple[pl.DataFrame, float]: dataframe of predicted values per date and
-        the MSE from training.
+        the RMSE from training.
     """
     stocks = [ticker]
 
-    model, mse, df_feat, feature_cols = train_xgb_model(
+    model, rmse, df_feat, feature_cols = train_xgb_model(
         stocks=stocks,
         start_date=start_date,
         end_date=end_date,
@@ -57,4 +57,4 @@ def train_and_forecast_xgb(
     forecaster = XGBStockForecaster(model, feature_cols, label=label)
     forecasts_df = forecaster.forecast_horizon(df_raw, days=horizon_days)
 
-    return forecasts_df, mse
+    return forecasts_df, rmse

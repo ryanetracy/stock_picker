@@ -6,7 +6,7 @@ forecasting is not done here, only model training.
 
 import polars as pl
 import xgboost as xgb
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import root_mean_squared_error
 from datetime import datetime
 from typing import Tuple
 
@@ -40,7 +40,7 @@ def train_xgb_model(
 
     Returns:
         Tuple[xgb.XGBRegressor, float, pl.DataFrame, list]: XGBoost regression
-        model, MSE value, full dataframe with features, features list.
+        model, RMSE value, full dataframe with features, features list.
     """
     if len(stocks) > 1:
         raise ValueError("can only do one stock forecast at a time")
@@ -70,8 +70,8 @@ def train_xgb_model(
     model.fit(X_train, y_train)
 
     preds = model.predict(X_test)
-    mse = mean_squared_error(y_test, preds)
+    rmse = root_mean_squared_error(y_test, preds)
 
     feature_cols = X_train.to_pandas().columns.tolist()
 
-    return model, mse, df_feat, feature_cols
+    return model, rmse, df_feat, feature_cols
