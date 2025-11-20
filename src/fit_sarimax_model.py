@@ -150,7 +150,7 @@ def fit_sarimax(
         df_out["lower_bound"] = ci_series["lower_bound"]
         df_out["upper_bound"] = ci_series["upper_bound"]
 
-        return df_out
+        return df_out.sort_values(by="date", ascending=True)
 
 def sarimax_wrapper(
     ticker: str,
