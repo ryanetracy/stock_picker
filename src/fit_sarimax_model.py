@@ -1,9 +1,14 @@
 
+"""
+full pipeline for loading the data, training, and forecasting with SARIMAX.
+"""
+
 import polars as pl
 import pandas as pd
 import pmdarima as pm 
 from sklearn.metrics import mean_squared_error
 from datetime import datetime, timedelta
+from typing import Tuple
 
 from src.load_data import load_stocks
 from src.data_etl import *
@@ -19,6 +24,28 @@ def fit_sarimax(
     days: int,
     eval_mode: bool = True
 ):
+    """fit the actual SARIMAX model.
+
+    has two modes: eval and forecast. eval mode uses the train-eval split to 
+    gauge how accurate the forecasts are (using MSE). forecast mode uses the
+    full dataset to train and make a forecast.
+
+    Args:
+        ticker (str): stock ticker to predict
+        start_date (str): when to start the training data.
+        end_date (str): last day of the training data.
+        label (str): which value to predict. defaults to "close".
+        cutoff (datetime): datetime object for train-test split.
+        days (int): how many days in the future to forecast.
+        eval_mode (bool, optional): whether to run the model as an evaluation of
+        performance or as a full forecast. defaults to True (i.e., evaluate the
+        model performance).
+
+    Returns:
+        _type_: output depends on `eval_mode`. returns a float (MSE) if 
+        `eval_mode` is True, or a table (date, predicted value) if `eval_mode` 
+        is False.
+    """
     stock = [ticker]
 
     df_raw = load_stocks(stock, start_date, end_date)
@@ -132,7 +159,24 @@ def sarimax_wrapper(
     label: str,
     cutoff: datetime,
     days: int
-):
+) -> Tuple[pl.DataFrame, float]:
+    """wrapper to run both versions of `fit_sarimax`.
+
+    gets training results (`eval_mode == True`) and forecast results (`eval_mode
+    == False`).
+
+    Args:
+        ticker (str): stock ticker to predict
+        start_date (str): when to start the training data.
+        end_date (str): last day of the training data.
+        label (str): which value to predict. defaults to "close".
+        cutoff (datetime): datetime object for train-test split.
+        days (int): how many days in the future to forecast.
+
+    Returns:
+        Tuple[pl.DataFrame, float]: table of predictions (date, predicted value)
+        and the MSE from training.
+    """
     mse = fit_sarimax(
         ticker,
         start_date,

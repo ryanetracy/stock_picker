@@ -1,8 +1,14 @@
 
+"""
+contains a wrapper function for loading the data and training the XGBoost model.
+forecasting is not done here, only model training.
+"""
+
 import polars as pl
 import xgboost as xgb
 from sklearn.metrics import mean_squared_error
 from datetime import datetime
+from typing import Tuple
 
 from src.load_data import load_stocks
 from src.data_etl import *
@@ -17,7 +23,28 @@ def train_xgb_model(
     label: str,
     n_estimators: int,
     learning_rate: float,
-):
+) -> Tuple[xgb.XGBRegressor, float, pl.DataFrame, list]:
+    """load raw data, preprocess, and train XGBoost model.
+
+    Args:
+        stocks (list): single-item list of stock tickers.
+        start_date (str): when to start the dataframe.
+        end_date (str): final date of the dataframe.
+        cutoff (datetime): cutoff datetime object for train/test splits.
+        label (str): label column (y).
+        n_estimators (int): XGBoost `n_estimators` hyperparameter.
+        learning_rate (float): XGBoost `learning_rate` hyperparameter.
+
+    Raises:
+        ValueError: cannot process more than one stock at a time.
+
+    Returns:
+        Tuple[xgb.XGBRegressor, float, pl.DataFrame, list]: XGBoost regression
+        model, MSE value, full dataframe with features, features list.
+    """
+    if len(stocks) > 1:
+        raise ValueError("can only do one stock forecast at a time")
+
     df_raw = load_stocks(
         stocks=stocks,
         start=start_date,

@@ -1,9 +1,32 @@
 
+"""
+function written to easily load and process stock data from `yfinance`.
+"""
+
 import pandas as pd
 import yfinance as yf
 import polars as pl
 
 def load_stocks(stocks: list, start: str, end: str, use_polars: bool = True):
+    """load stock data from `yfinance`.
+
+    stocks are loaded singularly, from start to end date. option to return a 
+    polars dataframe or a pandas dataframe.
+
+    Args:
+        stocks (list): single-item list of stock tockers.
+        start (str): first historical date.
+        end (str): last historical date (up to today).
+        use_polars (bool, optional): whether to return a polars dataframe or a
+        pandas dataframe. defaults to true.
+
+    Raises:
+        ValueError: raised if users enter more than 1 ticker
+
+    Returns:
+        DataFrame: polars or pandas dataframe, depending on the value of
+        `use_polars`.
+    """
     if len(stocks) > 1:
         raise ValueError("can only do one stock forecast at a time")
     df = yf.download(stocks, start, end)

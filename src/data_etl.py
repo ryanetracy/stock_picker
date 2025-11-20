@@ -1,8 +1,26 @@
 
+"""
+set of functions to process `yfinance` data, adding lagged features and time
+indicators to build the full feature space for each model.
+"""
+
 import polars as pl
 from src.load_data import load_stocks
 
 def prep_columns(df: pl.DataFrame, col: str) -> pl.DataFrame:
+    """prep the columns pulled from `yfinance` into a clean dataframe
+
+    adds a 'move' column to indicate overall daily change; time-lapse columns
+    lagged over 1, 7, 30 days; and rolling mean and SD values over 7 days.
+
+    Args:
+        df (pl.DataFrame): raw `yfinance` dataframe.
+        col (str): which column (choose between 'close', 'open') to compute the
+        lag features for.
+
+    Returns:
+        pl.DataFrame: full dataframe with lagged features of chosen column.
+    """
     if col == "move":
         df = df.with_columns(
             (pl.col("close") - pl.col("open")).alias(col)
@@ -42,7 +60,16 @@ def prep_columns(df: pl.DataFrame, col: str) -> pl.DataFrame:
     return df_out
 
 
-def prep_data_frame(df):
+def prep_data_frame(df: pl.DataFrame) -> pl.DataFrame:
+    """prepare lag columns for all of 'open', 'close', and 'move'.
+
+    Args:
+        df (pl.DataFrame): raw `yfinance` stock dataframe.
+
+    Returns:
+        pl.DataFrame: processed stock data with lag columns for all price
+        indicators.
+    """
     markers = ["open", "close", "move"]
     df_out = None
 
@@ -71,6 +98,19 @@ def prep_data_frame(df):
     )
 
 def build_dataset(df: pl.DataFrame, label: str = "close") -> pl.DataFrame:
+    """wrapper for `prep_data_frame`.
+
+    Args:
+        df (pl.DataFrame): raw `yfinance` stock dataframe.
+        label (str, optional): which of 'close' or 'move' to process. Defaults
+        to "close".
+
+    Raises:
+        ValueError: only accepts 'close' or 'move'.
+
+    Returns:
+        pl.DataFrame: fully processed `yfinance` data with nulls removed.
+    """
     df_feat = prep_data_frame(df)
 
     if label == "close":
@@ -82,10 +122,23 @@ def build_dataset(df: pl.DataFrame, label: str = "close") -> pl.DataFrame:
 
     return df_feat.drop_nulls()
 
-## might not get to do this as the data is empty past 1/30/18
 def build_df_with_indices(
     df: pl.DataFrame, label: str, start: str, end: str
 ) -> pl.DataFrame:
+    """process raw dataframe and add indices.
+
+    this is originally intended to bolster the SARIMAX model by adding broad
+    exogenous variables to the features space.
+
+    Args:
+        df (pl.DataFrame): raw `yfiance` stock dataframe.
+        label (str): 'close' or 'move' price indicator.
+        start (str): start date for index pulling from `yfinance`.
+        end (str): end date for index pulling from `yfinance`.
+
+    Returns:
+        pl.DataFrame: features data with lagged columns and added index values.
+    """
     indices_list = ["SPY", "QQQ", "IWM", "VXX", "UUP", "HYG", "LQD"]
     df_idx_out = None
 

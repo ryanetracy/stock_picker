@@ -1,4 +1,9 @@
 
+"""
+full pipeline for loading, transforming, training, and forecasting data for the
+XGBoost model.
+"""
+
 import polars as pl
 from datetime import datetime
 from typing import Tuple
@@ -17,6 +22,24 @@ def train_and_forecast_xgb(
     n_estimators: int = 200,
     learning_rate: float = 0.05
 ) -> Tuple[pl.DataFrame, float]:
+    """full pipeline for XGBoost model.
+
+    Args:
+        ticker (str): stock ticker to predict.
+        start_date (str): when to start the training data.
+        end_date (str): last day of the training data.
+        cutoff (datetime): datetime object for train-test split.
+        horizon_days (int): how many days in the future to forecast.
+        label (str, optional): which value to predict. defaults to "close".
+        n_estimators (int, optional): XGBoost `n_estimators` hyperparameter.
+        defaults to 200.
+        learning_rate (float, optional): XGBoost `learning_rate` hyperparameter.
+        defaults to 0.05.
+
+    Returns:
+        Tuple[pl.DataFrame, float]: dataframe of predicted values per date and
+        the MSE from training.
+    """
     stocks = [ticker]
 
     model, mse, df_feat, feature_cols = train_xgb_model(

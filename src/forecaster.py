@@ -1,4 +1,8 @@
 
+"""
+contains a class for forecasting the future value from the trained XGBoost model.
+"""
+
 import polars as pl
 import xgboost as xgb
 from datetime import timedelta
@@ -8,6 +12,9 @@ from src.data_etl import *
 
 
 class XGBStockForecaster:
+    """
+    use the trained XGBoost model to make a forecast over a specified interval.
+    """
     def __init__(
         self, model: xgb.XGBRegressor, feature_cols: list, label: str
     ):
@@ -16,11 +23,29 @@ class XGBStockForecaster:
         self.label = label
 
     def _predict_from_features(self, df_feat: pl.DataFrame) -> float:
+        """make a prediction based on the passed in features.
+
+        Args:
+            df_feat (pl.DataFrame): features table on which the model was
+            trained.
+
+        Returns:
+            float: single predicted value.
+        """
         row_pd = df_feat.select(self.feature_cols).tail(1).to_pandas()
         preds = self.model.predict(row_pd)
         return float(preds[0])
 
     def forecast_horizon(self, df_raw: pl.DataFrame, days: int) -> pl.DataFrame:
+        """run a forecast on the full horizon indciated by `days`.
+
+        Args:
+            df_raw (pl.DataFrame): raw `yfinance` stock dataframe.
+            days (int): number of days to forecast for.
+
+        Returns:
+            pl.DataFrame: table with a date and a predicted value column.
+        """
         df_current = df_raw.clone()
 
         forecast_dates = []
