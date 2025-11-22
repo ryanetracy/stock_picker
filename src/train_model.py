@@ -64,6 +64,7 @@ def train_xgb_model(
         max_depth=7,
         subsample=0.8,
         colsample_bytree=0.8,
+        reg_alpha=0.005,
         objective="reg:squarederror"
     )
 

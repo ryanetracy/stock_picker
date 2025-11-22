@@ -13,6 +13,7 @@ from typing import Tuple
 from src.load_data import load_stocks
 from src.data_etl import *
 from src.model_preprocess import split_ar_on_cutoff
+from src.utils import build_forecast_dates
 
 
 def fit_sarimax(
@@ -21,7 +22,7 @@ def fit_sarimax(
     end_date: str,
     label: str,
     cutoff: datetime,
-    days: int,
+    horizon_days: int,
     eval_mode: bool = True
 ):
     """fit the actual SARIMAX model.
@@ -31,12 +32,12 @@ def fit_sarimax(
     full dataset to train and make a forecast.
 
     Args:
-        ticker (str): stock ticker to predict
+        ticker (str): stock ticker to predict.
         start_date (str): when to start the training data.
         end_date (str): last day of the training data.
         label (str): which value to predict. defaults to "close".
         cutoff (datetime): datetime object for train-test split.
-        days (int): how many days in the future to forecast.
+        horizon_days (int): how many days in the future to forecast.
         eval_mode (bool, optional): whether to run the model as an evaluation of
         performance or as a full forecast. defaults to True (i.e., evaluate the
         model performance).
@@ -122,7 +123,7 @@ def fit_sarimax(
         )
 
         fitted, confint = sarimax_model.predict(
-            n_periods=days,
+            n_periods=horizon_days,
             return_conf_int=True,
             exogenous=df[exog_cols]
         )
@@ -133,18 +134,9 @@ def fit_sarimax(
             confint, columns=["lower_bound", "upper_bound"]
         )
 
-        forecast_dates = []
-        last_date = df["date"].iloc[-1]
-
-        for d in range(days):
-            next_date = last_date + timedelta(days=d)
-
-            while next_date.weekday() >= 5:
-                next_date = next_date + timedelta(days=d)
-
-            forecast_dates.append(next_date)
-
-        df_out = pd.DataFrame({"date": forecast_dates})
+        df_out = build_forecast_dates(
+            end_date, horizon_days, skip_weekends=True
+        )
 
         df_out[f"pred_{label}"] = fitted[f"pred_{label}"]
         df_out["lower_bound"] = ci_series["lower_bound"]
@@ -158,7 +150,7 @@ def sarimax_wrapper(
     end_date: str,
     label: str,
     cutoff: datetime,
-    days: int
+    horizon_days: int
 ) -> Tuple[pl.DataFrame, float]:
     """wrapper to run both versions of `fit_sarimax`.
 
@@ -171,7 +163,7 @@ def sarimax_wrapper(
         end_date (str): last day of the training data.
         label (str): which value to predict. defaults to "close".
         cutoff (datetime): datetime object for train-test split.
-        days (int): how many days in the future to forecast.
+        horizon_days (int): how many days in the future to forecast.
 
     Returns:
         Tuple[pl.DataFrame, float]: table of predictions (date, predicted value)
@@ -183,7 +175,7 @@ def sarimax_wrapper(
         end_date,
         label,
         cutoff,
-        days,
+        horizon_days,
         eval_mode=True
     )
 
@@ -193,7 +185,7 @@ def sarimax_wrapper(
         end_date,
         label,
         cutoff,
-        days,
+        horizon_days,
         eval_mode=False
     )
 
