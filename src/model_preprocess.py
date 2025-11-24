@@ -28,7 +28,8 @@ def train_test_split_cutoff(
 
     Returns:
         Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]: gives the
-        "traditional" X_train, X_test, y_train, y_test output (akin to sklearn).
+            "traditional" X_train, X_test, y_train, y_test output (akin to
+            sklearn).
     """
     train = df.filter(pl.col("date") < cutoff)
     test = df.filter(pl.col("date") >= cutoff)
@@ -58,7 +59,7 @@ def split_ar_on_cutoff(
 
     Returns:
         Tuple[pd.DataFrame, pd.DataFrame]: train/eval dataframes returned as
-        pandas dataframes.
+            pandas dataframes.
     """
     train = df.filter(pl.col("date") < cutoff)
     eval = df.filter(pl.col("date") >= cutoff)

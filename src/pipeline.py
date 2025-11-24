@@ -32,13 +32,13 @@ def train_and_forecast_xgb(
         horizon_days (int): how many days in the future to forecast.
         label (str, optional): which value to predict. defaults to "close".
         n_estimators (int, optional): XGBoost `n_estimators` hyperparameter.
-        defaults to 200.
+            defaults to 200.
         learning_rate (float, optional): XGBoost `learning_rate` hyperparameter.
-        defaults to 0.05.
+            defaults to 0.05.
 
     Returns:
         Tuple[pl.DataFrame, float]: dataframe of predicted values per date and
-        the RMSE from training.
+            the RMSE from training.
     """
     stocks = [ticker]
 

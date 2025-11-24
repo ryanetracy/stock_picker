@@ -40,7 +40,7 @@ def train_xgb_model(
 
     Returns:
         Tuple[xgb.XGBRegressor, float, pl.DataFrame, list]: XGBoost regression
-        model, RMSE value, full dataframe with features, features list.
+            model, RMSE value, full dataframe with features, features list.
     """
     if len(stocks) > 1:
         raise ValueError("can only do one stock forecast at a time")

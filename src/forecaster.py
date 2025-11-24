@@ -27,7 +27,7 @@ class XGBStockForecaster:
 
         Args:
             df_feat (pl.DataFrame): features table on which the model was
-            trained.
+                trained.
 
         Returns:
             float: single predicted value.

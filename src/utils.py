@@ -18,7 +18,7 @@ def build_forecast_dates(
         last_date (_type_): either a string date or datetime object.
         horizon_days (int): number of days (rows) to create dataframe of.
         skip_weekends (bool, optional): should weekends be skipped. defaults to
-        True.
+            True.
 
     Returns:
         pd.DataFrame: pandas dataframe of dates.

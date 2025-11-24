@@ -5,7 +5,12 @@ indicators to build the full feature space for each model.
 """
 
 import polars as pl
+from datetime import datetime, date, timedelta
+import yfinance as yf
+from typing import Tuple
+
 from src.load_data import load_stocks
+
 
 def prep_columns(df: pl.DataFrame, col: str) -> pl.DataFrame:
     """prep the columns pulled from `yfinance` into a clean dataframe
@@ -16,7 +21,7 @@ def prep_columns(df: pl.DataFrame, col: str) -> pl.DataFrame:
     Args:
         df (pl.DataFrame): raw `yfinance` dataframe.
         col (str): which column (choose between 'close', 'open') to compute the
-        lag features for.
+            lag features for.
 
     Returns:
         pl.DataFrame: full dataframe with lagged features of chosen column.
@@ -68,7 +73,7 @@ def prep_data_frame(df: pl.DataFrame) -> pl.DataFrame:
 
     Returns:
         pl.DataFrame: processed stock data with lag columns for all price
-        indicators.
+            indicators.
     """
     markers = ["open", "close", "move"]
     df_out = None
@@ -103,7 +108,7 @@ def build_dataset(df: pl.DataFrame, label: str = "close") -> pl.DataFrame:
     Args:
         df (pl.DataFrame): raw `yfinance` stock dataframe.
         label (str, optional): which of 'close' or 'move' to process. Defaults
-        to "close".
+            to "close".
 
     Raises:
         ValueError: only accepts 'close' or 'move'.
@@ -161,3 +166,105 @@ def build_df_with_indices(
     df_out = df_ticker.join(df_idx_out, on=["date"], how="inner")
 
     return df_out
+
+class GetSectorETF:
+    """simple class to infer sector ETFs"""
+    def __init__(
+        self,
+        indexes: list,
+        label: str
+    ):
+        self.SECTOR_TO_ETF = {
+            "Technology": "XLK",
+            "Communication Services": "XLC",
+            "Financial Services": "XLF",
+            "Energy": "XLE",
+            "Consumer Cyclical": "XLY",
+            "Consumer Defensive": "XLP",
+            "Industrials": "XLI",
+            "Healthcare": "XLV",
+            "Real Estate": "XLRE",
+            "Utilities": "XLU",
+        }
+
+        self.indexes = indexes
+
+        if label not in ["open", "close", "move"]:
+            raise ValueError("label must be one of ['open', 'close', 'move]")
+        else:
+            self.label = label
+
+    def extract_stock_info(self, stock_df: pl.DataFrame) -> Tuple[str, str, str]:
+        """extract the ticker, earliest, and latest data from `stock_df`.
+
+        Args:
+            stock_df (pl.DataFrame): stock dataframe loaded from `yfinance`.
+
+        Returns:
+            Tuple[str, str, str]: ticker, start_date, end_date values
+        """
+        tickers = [stock_df.select("ticker").unique().item()]
+
+        date_df = (
+            stock_df
+            .select("date")
+            .unique()
+            .sort(by="date", descending=True)
+        )
+
+        min_date = date_df.select("date").tail(1).item().strftime("%Y-%m-%d")
+        max_date = date_df.select("date").head(1).item().strftime("%Y-%m-%d")
+
+        return tickers, min_date, max_date
+
+    def infer_sector_etfs(self, stock_df: pl.DataFrame) -> pl.DataFrame:
+        """using tickers, extracts the close and volume of sector ETFs.
+
+        Args:
+            stock_df (pl.DataFrame): stock dataframe loaded from `yfinance`.
+
+        Returns:
+            pl.DataFrame: dataframe of dates, `label` and volume values for
+                relevant ETFs for the stock's ticker, as well as `label` and 
+                volume values for the passed-in indexes.
+        """
+        tickers, start_date, end_date = self.extract_stock_info(stock_df)
+
+        etfs = set()
+
+        for t in tickers:
+            info = yf.Ticker(t).info
+            sector = info.get("sector")
+            if sector in self.SECTOR_TO_ETF:
+                etfs.add(self.SECTOR_TO_ETF[sector])
+
+        ticker_list = list(etfs)
+        ticker_list += self.indexes
+        df_out = None
+
+        for ticker in ticker_list:
+            df_temp = load_stocks([ticker], start_date, end_date).select(
+                pl.col("date"),
+                pl.col("volume").alias(f"{ticker}_volume"),
+                pl.col(self.label).alias(f"{ticker}_{self.label}")
+            )
+
+            if df_out is None:
+                df_out = df_temp 
+            else:
+                df_out = df_out.join(df_temp, on=["date"], how="inner")
+
+        return df_out
+
+    def build_etf_df(self, stock_df: pl.DataFrame) -> pl.DataFrame:
+        """combine ETF values with stock dataframe
+
+        Args:
+            stock_df (pl.DataFrame): stock dataframe loaded from `yfinance`.
+
+        Returns:
+            pl.DataFrame: combined dataframe of `stock_df` with ETF values.
+        """
+        df_etf = self.infer_sector_etfs(stock_df)
+
+        return stock_df.join(df_etf, on=["date"], how="inner")

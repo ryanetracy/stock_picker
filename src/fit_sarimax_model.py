@@ -39,13 +39,13 @@ def fit_sarimax(
         cutoff (datetime): datetime object for train-test split.
         horizon_days (int): how many days in the future to forecast.
         eval_mode (bool, optional): whether to run the model as an evaluation of
-        performance or as a full forecast. defaults to True (i.e., evaluate the
-        model performance).
+            performance or as a full forecast. defaults to True (i.e., evaluate 
+            the model performance).
 
     Returns:
         _type_: output depends on `eval_mode`. returns a float (RMSE) if 
-        `eval_mode` is True, or a table (date, predicted value) if `eval_mode` 
-        is False.
+            `eval_mode` is True, or a table (date, predicted value) if 
+            `eval_mode` is False.
     """
     stock = [ticker]
 
@@ -167,7 +167,7 @@ def sarimax_wrapper(
 
     Returns:
         Tuple[pl.DataFrame, float]: table of predictions (date, predicted value)
-        and the RMSE from training.
+            and the RMSE from training.
     """
     rmse = fit_sarimax(
         ticker,

@@ -18,7 +18,7 @@ def load_stocks(stocks: list, start: str, end: str, use_polars: bool = True):
         start (str): first historical date.
         end (str): last historical date (up to today).
         use_polars (bool, optional): whether to return a polars dataframe or a
-        pandas dataframe. defaults to true.
+            pandas dataframe. defaults to true.
 
     Raises:
         ValueError: raised if users enter more than 1 ticker
