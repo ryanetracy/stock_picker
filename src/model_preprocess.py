@@ -4,7 +4,7 @@ handle the creation of train-test splits for each model. not all are the same.
 split for xgboost is traditional (X,y train/test tables), but for forecasting
 models the split is a train/eval split without a test dataframe.
 
-each split is done based on a cutoff datae to only allow training on past data 
+each split is done based on a cutoff date to only allow training on past data 
 and testing/eval on future data.
 """
 

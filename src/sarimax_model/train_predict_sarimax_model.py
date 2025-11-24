@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Tuple
 
 from src.load_data import load_stocks
-from src.data_etl import *
+from src.sarimax_model.sarimax_etl import *
 from src.model_preprocess import split_ar_on_cutoff
 from src.utils import build_forecast_dates
 

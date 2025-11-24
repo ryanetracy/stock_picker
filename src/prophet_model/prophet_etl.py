@@ -8,7 +8,8 @@ regressors in Prophet.
 
 import yfinance as yf 
 import polars as pl 
-import pandas as pd 
+import pandas as pd
+from typing import Tuple
 
 from src.load_data import load_stocks 
 

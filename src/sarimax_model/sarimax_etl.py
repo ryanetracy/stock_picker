@@ -14,6 +14,7 @@ from typing import Tuple
 from src.load_data import load_stocks
 from src.xgboost_model.xgboost_etl import build_dataset
 
+
 def build_df_with_indices(
     df: pl.DataFrame, label: str, start: str, end: str
 ) -> pl.DataFrame:

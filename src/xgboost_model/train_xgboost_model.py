@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Tuple
 
 from src.load_data import load_stocks
-from src.data_etl import *
+from src.xgboost_model.xgboost_etl import *
 from src.model_preprocess import train_test_split_cutoff
 
 
