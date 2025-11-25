@@ -91,16 +91,28 @@ class ProphetForecaster:
             pd.DataFrame: single row containing date and regressors for making
                 the forecast.
         """
-        last_row = df_full.sort_values("ds").iloc[-1]
-        date_list = future_dates["date"].tolist()
-        rows = []
-        for d in date_list:
-            row = {"ds": d}
-            for col in self.reg_cols:
-                row[col] = last_row[col]
-            rows.append(row)
+        # last_row = df_full.sort_values("ds").iloc[-1]
+        # date_list = future_dates["date"].tolist()
 
-        return pd.DataFrame(rows)
+        # rows = []
+
+        # for d in date_list:
+        #     row = {"ds": d}
+        #     for col in self.reg_cols:
+        #         row[col] = last_row[col]
+        #     rows.append(row)
+
+        # return pd.DataFrame(rows)
+
+        max_date = df_full["ds"].max()
+        df_max = df_full[df_full["ds"] == max_date].drop("y", axis=1)
+
+        reg_cols = [c for c in df_max.columns if c not in ["ds", "y"]]
+
+        for col in reg_cols:
+            future_dates[col] = df_max[col].iloc[0]
+
+        return future_dates
 
     def make_prediction(
         self,
@@ -122,14 +134,14 @@ class ProphetForecaster:
             pl.DataFrame: polars dataframe containing future dates, predicted
                 values, and upper/lower bound CIs (95%).
         """
-        assert self.model is not None 
+        assert self.model is not None
 
         last_date = df_full["ds"].max()
 
         future_dates = build_forecast_dates(
             last_date,
             horizon_days=horizon_days,
-            skip_weekends=True 
+            skip_weekends=True
         )
 
         future_regs = self._build_future_regressors(df_full, future_dates)

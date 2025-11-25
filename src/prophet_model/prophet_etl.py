@@ -122,6 +122,7 @@ class GetSectorETF:
             .join(
                 df_etf, on=["date"], how="inner"
             )
+            .sort("date")
         )
 
 def compute_returns(df: pl.DataFrame) -> pl.DataFrame:
@@ -164,7 +165,7 @@ def compute_return_volatility(df: pl.DataFrame, window: int) -> pd.DataFrame:
         df = df.with_columns(
             pl.col(ticker)
             .rolling_std(window_size=window, min_samples=1)
-            .alias(f"{ticker}_return_rolling_std_{window}")
+            .alias(f"{ticker}_rolling_std_{window}")
         )
 
     return df.to_pandas()
@@ -245,6 +246,7 @@ def build_prophet_df(
     df_vol["prev14_close"] = compute_price_volatility(df_vol, tkr, 7)
     df_vol["prev30_close"] = compute_price_volatility(df_vol, tkr, 30)
 
-    return df_vol.rename(
-        columns={"date": "ds", f"{tkr}": "y"}
-    ).dropna()
+    return (
+        df_vol.rename(columns={"date": "ds", f"{tkr}": "y"})
+        .dropna()
+    )
