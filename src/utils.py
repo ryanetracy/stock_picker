@@ -23,19 +23,16 @@ def build_forecast_dates(
     Returns:
         pd.DataFrame: pandas dataframe of dates.
     """
-    if not isinstance(last_date, (pd.Timestamp, )):
+    if not isinstance(last_date, pd.Timestamp):
         last_date = pd.Timestamp(last_date)
 
     forecast_dates = []
-    current_date = last_date 
+    current_date = last_date
 
-    for _ in range(horizon_days):
+    while len(forecast_dates) < horizon_days:
         current_date = current_date + timedelta(days=1)
-
-        if skip_weekends:
-            while current_date.weekday() >= 5:
-                current_date = current_date + timedelta(days=1)
-
-        forecast_dates.append(current_date)
+        if skip_weekends and current_date.weekday() >= 5:
+            continue
+        forecast_dates.append(current_date.normalize())
 
     return pd.DataFrame({"date": forecast_dates})

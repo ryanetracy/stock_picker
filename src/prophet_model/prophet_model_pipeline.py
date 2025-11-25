@@ -91,28 +91,18 @@ class ProphetForecaster:
             pd.DataFrame: single row containing date and regressors for making
                 the forecast.
         """
-        # last_row = df_full.sort_values("ds").iloc[-1]
-        # date_list = future_dates["date"].tolist()
+        last_row = df_full.sort_values("ds").iloc[-1]
+        date_list = future_dates["date"].tolist()
 
-        # rows = []
+        rows = []
 
-        # for d in date_list:
-        #     row = {"ds": d}
-        #     for col in self.reg_cols:
-        #         row[col] = last_row[col]
-        #     rows.append(row)
+        for d in date_list:
+            row = {"ds": d}
+            for col in self.reg_cols:
+                row[col] = last_row[col]
+            rows.append(row)
 
-        # return pd.DataFrame(rows)
-
-        max_date = df_full["ds"].max()
-        df_max = df_full[df_full["ds"] == max_date].drop("y", axis=1)
-
-        reg_cols = [c for c in df_max.columns if c not in ["ds", "y"]]
-
-        for col in reg_cols:
-            future_dates[col] = df_max[col].iloc[0]
-
-        return future_dates
+        return pd.DataFrame(rows)
 
     def make_prediction(
         self,
