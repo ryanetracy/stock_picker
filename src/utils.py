@@ -8,9 +8,9 @@ from datetime import timedelta
 import pandas as pd
 
 def build_forecast_dates(
-        last_date,
-        horizon_days: int,
-        skip_weekends: bool = True
+    last_date,
+    horizon_days: int,
+    skip_weekends: bool = True
 ) -> pd.DataFrame:
     """create a dataframe of dates based on `horizon_days`.
 

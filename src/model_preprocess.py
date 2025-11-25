@@ -75,3 +75,21 @@ def split_ar_on_cutoff(
     eval_pd = eval_pd[cols_list]
 
     return train_pd, eval_pd
+
+def split_prophet_df(
+        df: pd.DataFrame, cutoff: datetime
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """train/eval split for Prophet model.
+
+    Args:
+        df (pd.DataFrame): pandas dataframe set up for Prophet.
+        cutoff (datetime): datetime object indicating the split date.
+
+    Returns:
+        Tuple[pd.DataFrame, pd.DataFrame]: train/eval dataframes returned as
+            pandas dataframes.
+    """
+    df_train = df[df["ds"] < cutoff]
+    df_eval = df[df["ds"] >= cutoff]
+
+    return df_train, df_eval
