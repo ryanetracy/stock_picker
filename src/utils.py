@@ -4,11 +4,12 @@ utility functions
     build_forecast_dates
 """
 
-from datetime import timedelta
+from datetime import timedelta, date, datetime
 import pandas as pd
+from typing import List, Union
 
 def build_forecast_dates(
-    last_date,
+    last_date: Union[date, datetime, pd.Timestamp],
     horizon_days: int,
     skip_weekends: bool = True
 ) -> pd.DataFrame:
@@ -31,8 +32,11 @@ def build_forecast_dates(
 
     while len(forecast_dates) < horizon_days:
         current_date = current_date + timedelta(days=1)
+
         if skip_weekends and current_date.weekday() >= 5:
             continue
+
         forecast_dates.append(current_date.normalize())
 
     return pd.DataFrame({"date": forecast_dates})
+    # return forecast_dates
