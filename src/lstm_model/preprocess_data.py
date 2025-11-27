@@ -39,8 +39,10 @@ def scale_features(
         Tuple[pd.DataFrame, StandardScaler]: dataframe with scaled features and
             scaler fit on training sample.
     """
-    n = len(df)
-    train_n = int(n * train_proportion)
+    # n = len(df)
+    # train_n = int(n * train_proportion)
+
+    train_n = get_train_size(len(df), train_proportion)
 
     scaler = StandardScaler()
     scaler.fit(df[feat_cols].iloc[:train_n])
@@ -56,7 +58,8 @@ def make_lstm_sequences(
         feat_cols: list,
         label: str,
         train_proportion: float = 0.7,
-        lookback: int = 30
+        lookback: int = 30,
+        use_delta: bool = False
     ) -> Tuple[torch.tensor, torch.tensor, torch.tensor, torch.tensor]:
     """make a sequence of `lookback` days for LSTM modeling.
 
@@ -68,11 +71,19 @@ def make_lstm_sequences(
             training. defaults to 0.7.
         lookback (int, optional): size of lookback window for sequencing. 
             defaults to 30.
+        use_delta (bool, optional): convert label to a delta, centering it and
+            allowing the model to predict more signal relative to raw label. 
+            defaults to false
 
     Returns:
         Tuple[torch.tensor, torch.tensor, torch.tensor, torch.tensor]: X_train,
             X_test, y_train, y_test returned as torch tensors.
     """
+    if use_delta:
+        df[f"delta_{label}"] = df[label].diff()
+        df  = df.dropna()
+        label = f"delta_{label}"
+
     X_list, y_list = [], []
     values = df[feat_cols + [label]].values.astype("float32")
 
@@ -83,7 +94,7 @@ def make_lstm_sequences(
     X = torch.tensor(np.stack(X_list))
     y = torch.tensor(np.array(y_list))
 
-    train_size = get_train_size(len(X), train_proportion) ## stick with this for now, incorporate cutoff later (i like that approach..)
+    train_size = get_train_size(len(X), train_proportion)
 
     X_train = X[:train_size]
     X_test = X[train_size:]
@@ -91,3 +102,93 @@ def make_lstm_sequences(
     y_test = y[train_size:]
 
     return X_train, X_test, y_train, y_test
+
+def train_test_split_single_feature(
+    df: pd.DataFrame, label: str, train_proportion: float = 0.7
+) -> Tuple[np.array, np.array]:
+    """split training and testing data from pandas dataframe.
+
+    Args:
+        df (pd.DataFrame): pandas dataframe.
+        label (str): label column name.
+        train_proportion (float, optional): proportion of the sample to save for
+            training. defaults to 0.7.
+
+    Returns:
+        Tuple[np.array, np.array]: numpy arrays of training and testing data.
+    """
+    timeseries = df[[label]].values.astype("float32")
+    train_size = get_train_size(len(df), train_proportion)
+    train, test = timeseries[:train_size], timeseries[train_size:]
+
+    return train, test
+
+def make_lstm_sequences_single_feature(
+    data: np.array, lookback: int = 30
+) -> Tuple[list, list]:
+    """_summary_
+
+    Args:
+        data (np.array): numpy array of timeseries data.
+        lookback (int, optional): size of lookback window for sequencing. 
+            defaults to 30.
+
+    Returns:
+        Tuple[list, list]: list of arrays of timeseries sequences.
+    """
+    X, y = [], []
+
+    for i in range(len(data) - lookback):
+        feature = data[i: i + lookback]
+        target = data[i + 1: i + lookback + 1]
+        X.append(feature)
+        y.append(target)
+
+    return X, y 
+
+def process_single_feature_data(
+    df: pd.DataFrame,
+    label: str,
+    train_proportion: float = 0.7,
+    lookback: str = 30,
+    use_delta: bool = False
+) -> Tuple[torch.tensor, torch.tensor, torch.tensor, torch.tensor]:
+    """_summary_
+
+    Args:
+        df (pd.DataFrame): pandas dataframe of timeseries data.
+        label (str): label column name.
+        train_proportion (float, optional): proportion of the sample to save for
+            training. defaults to 0.7.
+        lookback (str, optional): size of lookback window for sequencing. 
+            defaults to 30.
+        use_delta (bool, optional): convert label to a delta, centering it and
+            allowing the model to predict more signal relative to raw label. 
+            defaults to false
+
+    Returns:
+        Tuple[torch.tensor, torch.tensor, torch.tensor, torch.tensor]: X_train,
+            X_test, y_train, y_test returned as torch tensors.
+    """
+    if use_delta:
+        df[f"delta_{label}"] = df[label].diff()
+        df = df.dropna()
+        label = f"delta_{label}"
+
+    train, test = train_test_split_single_feature(
+        df=df, label=label, train_proportion=train_proportion
+    )
+
+    X_train, y_train = make_lstm_sequences_single_feature(
+        data=train, lookback=lookback
+    )
+    X_test, y_test = make_lstm_sequences_single_feature(
+        data=test, lookback=lookback
+    )
+
+    return (
+        torch.tensor(X_train),
+        torch.tensor(X_test),
+        torch.tensor(y_train),
+        torch.tensor(y_test)
+    )

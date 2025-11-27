@@ -18,9 +18,9 @@ class LSTMStockForecaster(nn.Module):
         input_units: int,
         hidden_units: int = 64,
         num_layers: int = 1,
-        lstm_dropout: float = 0.2,
+        lstm_dropout: float = 0.0,
         mlp_hidden: int = 32,
-        mlp_dropout: float = 0.2
+        mlp_dropout: float = 0.0
     ):
         super().__init__()
 
@@ -52,7 +52,7 @@ class LSTMBiDirStockForecaster(nn.Module):
         hidden_units: int = 64,
         num_layers: int = 1,
         bidirectional: bool = True,
-        lstm_dropout: float = 0.2
+        lstm_dropout: float = 0.0
     ):
         super().__init__()
 
@@ -81,7 +81,7 @@ class AttentiveLSTMStockForecaster(nn.Module):
         input_units: int,
         hidden_units: int = 64,
         num_layers: int = 1,
-        lstm_dropout: float = 0.2
+        lstm_dropout: float = 0.0
     ):
         super().__init__()
 
@@ -117,7 +117,7 @@ class GRUStockForecaster(nn.Module):
         input_units: int,
         hidden_units: int = 64,
         num_layers: int = 1,
-        dropout: float = 0.2
+        dropout: float = 0.0
     ):
         super().__init__()
 
