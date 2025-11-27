@@ -51,7 +51,7 @@ class LSTMDeepStackStockForecaster(nn.Module):
         hidden_units1: int = 16,
         mlp_units: int = 32,
         hidden_units2: int = 64,
-        dropout: float = 32
+        dropout: float = 0.2
     ):
         super().__init__()
 
