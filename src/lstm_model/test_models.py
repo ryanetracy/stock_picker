@@ -44,6 +44,48 @@ class LSTMStockForecaster(nn.Module):
         last_hidden = out[:, -1, :]
         return self.mlp(last_hidden)
 
+class LSTMDeepStackStockForecaster(nn.Module):
+    def __init__(
+        self,
+        input_units: int,
+        hidden_units1: int = 16,
+        mlp_units: int = 32,
+        hidden_units2: int = 64,
+        dropout: float = 32
+    ):
+        super().__init__()
+
+        self.lstm1 = nn.LSTM(
+            input_size=input_units,
+            hidden_size=hidden_units1,
+            num_layers=1,
+            batch_first=True
+        )
+
+        self.mlp = nn.Sequential(
+            nn.Linear(hidden_units1, mlp_units),
+            nn.ReLU(),
+            nn.Dropout(dropout)
+        )
+
+        self.lstm2 = nn.LSTM(
+            input_size=mlp_units,
+            hidden_size=hidden_units2,
+            num_layers=1,
+            batch_first=True
+        )
+
+        self.fc = nn.Linear(hidden_units2, 1)
+
+    def forward(self, x):
+        out1, _ = self.lstm1(x)
+        B, T, H1 = out1.shape
+        h = out1.reshape(B * T, H1)
+        h = self.mlp(h)
+        h = h.reshape(B, T, -1)
+        out2, _ = self.lstm2(h)
+        last_hidden = out2[:, -1, :]
+        return self.fc(last_hidden)
 
 class LSTMBiDirStockForecaster(nn.Module):
     def __init__(
@@ -103,12 +145,9 @@ class AttentiveLSTMStockForecaster(nn.Module):
 
     def forward(self, x):
         out, (hh_n, c_n) = self.lstm(x)
-
         scores = self.attn(out)
         weights = torch.softmax(scores, dim=1)
-
         context = (weights * out).sum(dim=1)
-
         return self.linear(context)
 
 class GRUStockForecaster(nn.Module):
