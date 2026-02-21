@@ -1,14 +1,81 @@
-
 """
 contains a class for forecasting the future value from the trained XGBoost model.
 """
+from __future__ import annotations 
 
+import pandas as pd
 import polars as pl
 import xgboost as xgb
-from datetime import timedelta
+from datetime import timedelta, datetime
+from typing import Dict, List 
 
-from src.load_data import load_stocks
-from src.xgboost_model.xgboost_etl import *
+from src.xgboost_model.xgboost_etl import prep_data_frame
+from src.utils import build_trading_future_dates
+
+
+class XGBExpiryForecaster:
+    """
+    forecast a horizon-ahead return distribution (or point) from the latest 
+    features.
+    """
+    def __init__(
+        self,
+        models: Dict[str, xgb.XGBRegressor],
+        feature_cols: List[str],
+        label_mode: str = "log_return"
+    ):
+        self.models = models
+        self.feature_cols = feature_cols
+        self.label_mode = label_mode
+
+    def _latest_feature_row(self, df_raw: pl.DataFrame) -> pd.DataFrame:
+        df_feat = prep_data_frame(df_raw)
+        return df_feat.select(self.feature_cols).tail(1).to_pandas()
+
+    def _return_to_price(self, s0: float, r: float) -> float:
+        if self.label_mode == "log_return":
+            return float(s0 * (2.718281828459045 ** r))
+        return float(s0 * (1.0 + r))
+
+    def forecast_expiry(
+        self,
+        df_raw: pl.DataFrame,
+        horizon: int,
+        price_col: str = "close"
+    ) -> pl.DataFrame:
+        """forecast to expiry at +horizon trading days
+
+        returns 1-row df with date + predicted return quantiles + price quantiles.
+
+        Args:
+            df_raw (pl.DataFrame): raw `yfinance` stock data.
+            horizon (int): forecast horizon trading days.
+            price_col (str, optional): the initial column off of which the label
+                was built. defaults to 'close'. 
+
+        Returns:
+            pl.DataFrame: table with dates and predicted values.
+        """
+        last_date = df_raw["date"][-1]
+
+        if isinstance(last_date, datetime):
+            last_dt = last_date
+        else:
+            last_dt = datetime.combine(last_date, datetime.min.time())
+
+        expiry_date = build_trading_future_dates(last_dt, horizon)[-1]
+
+        s0 = float(df_raw[price_col][-1])
+        X = self._latest_feature_row(df_raw)
+
+        out = {"date": [expiry_date], "spot": [s0], "horizon": [horizon]}
+
+        for name, m in self.models.items():
+            rhat = float(m.predict(X)[0])
+            out[f"pred_{name}_ret"] = [rhat]
+            out[f"pred_{name}_px"] = [self._return_to_price(s0, rhat)]
+
+        return pl.from_pandas(pd.DataFrame(out))
 
 
 class XGBStockForecaster:
@@ -16,67 +83,15 @@ class XGBStockForecaster:
     use the trained XGBoost model to make a forecast over a specified interval.
     """
     def __init__(
-        self, model: xgb.XGBRegressor, feature_cols: list, label: str
+        self, model: xgb.XGBRegressor, feature_cols: list, label_col: str
     ):
         self.model = model
         self.feature_cols = feature_cols
-        self.label = label
+        self.label_col = label_col
 
-    def _predict_from_features(self, df_feat: pl.DataFrame) -> float:
-        """make a prediction based on the passed in features.
-
-        Args:
-            df_feat (pl.DataFrame): features table on which the model was
-                trained.
-
-        Returns:
-            float: single predicted value.
-        """
+    def predict_one(self, df_raw: pl.DataFrame) -> float:
+        """predict using the most recent row of features built from `df_raw`"""
+        df_feat = prep_data_frame(df_raw)
         row_pd = df_feat.select(self.feature_cols).tail(1).to_pandas()
-        preds = self.model.predict(row_pd)
-        return float(preds[0])
-
-    def forecast_horizon(self, df_raw: pl.DataFrame, days: int) -> pl.DataFrame:
-        """run a forecast on the full horizon indciated by `days`.
-
-        Args:
-            df_raw (pl.DataFrame): raw `yfinance` stock dataframe.
-            days (int): number of days to forecast for.
-
-        Returns:
-            pl.DataFrame: table with a date and a predicted value column.
-        """
-        df_current = df_raw.clone()
-
-        forecast_dates = []
-        forecast_values = []
-
-        for _ in range(days):
-            df_feat = prep_data_frame(df_current)
-            pred = self._predict_from_features(df_feat)
-            last_date = df_current["date"][-1]
-            next_date = last_date + timedelta(days=1)
-
-            while next_date.weekday() >= 5:
-                next_date = next_date + timedelta(days=1)
-
-            forecast_dates.append(next_date)
-            forecast_values.append(pred)
-
-            last_row = df_current.tail(1)
-
-            date_dtype = df_current.schema["date"]
-
-            new_row = last_row.with_columns(
-                pl.lit(next_date).cast(date_dtype).alias("date"),
-                pl.lit(pred).alias(f"{self.label}")
-            )
-
-            df_current = df_current.vstack(new_row)
-
-        return pl.DataFrame(
-            {
-                "date": forecast_dates,
-                f"pred_{self.label}": forecast_values
-            }
-        )
+        pred = self.model.predict(row_pd)
+        return float(pred[0])

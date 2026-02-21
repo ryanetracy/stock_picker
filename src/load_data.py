@@ -1,13 +1,13 @@
-
 """
 function written to easily load and process stock data from `yfinance`.
 """
-
 import pandas as pd
 import yfinance as yf
 import polars as pl
 
-def load_stocks(stocks: list, start: str, end: str, use_polars: bool = True):
+def load_stocks(
+    stocks: str | list[str], start: str, end: str, use_polars: bool = True
+) -> pl.DataFrame | pd.DataFrame:
     """load stock data from `yfinance`.
 
     stocks are loaded singularly, from start to end date. option to return a 
@@ -27,8 +27,12 @@ def load_stocks(stocks: list, start: str, end: str, use_polars: bool = True):
         DataFrame: polars or pandas dataframe, depending on the value of
         `use_polars`.
     """
+    if isinstance(stocks, str):
+        stocks = [stocks]
+
     if len(stocks) > 1:
         raise ValueError("can only do one stock forecast at a time")
+
     df = yf.download(stocks, start, end)
     df.index = pd.to_datetime(df.index)
     df.columns = (

@@ -1,8 +1,6 @@
-
 """
 full pipeline for loading the data, training, and forecasting with SARIMAX.
 """
-
 import polars as pl
 import pandas as pd
 import pmdarima as pm 

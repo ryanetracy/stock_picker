@@ -1,11 +1,9 @@
-
 """
 set of functions to process `yfinance` data for the SARIMAX model.
 
 pulls code from xgboost model (`build_dataset`) and uses it to add indexes to 
 the dataframe. 
 """
-
 import polars as pl
 from datetime import datetime, date, timedelta
 import yfinance as yf

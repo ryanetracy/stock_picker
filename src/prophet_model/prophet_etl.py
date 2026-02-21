@@ -1,11 +1,9 @@
-
 """
 set of functions to process `yfinance` data for the Prophet model.
 
 focuses on pulling indexes and computing returns and volatility to add these as
 regressors in Prophet.
 """
-
 import yfinance as yf 
 import polars as pl 
 import pandas as pd
