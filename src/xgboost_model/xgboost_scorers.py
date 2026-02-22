@@ -703,12 +703,12 @@ def score_options_results(
             ascending=[True, False]
         ).groupby(
             ["horizon", "type"]
-        ).head(5),
+        ).head(10),
 
         spread_res.sort_values(
             ["horizon", "efficiency_score"], 
             ascending=[True, False]
         ).groupby(
             ["horizon", "spread"]
-        ).head(5)
+        ).head(10)
     )
