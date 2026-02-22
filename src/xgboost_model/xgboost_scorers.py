@@ -8,6 +8,7 @@ import numpy as np
 from math import log, sqrt, exp 
 from scipy.stats import norm 
 from datetime import date 
+from typing import Dict, Tuple
 
 from src.load_data import get_option_chain, list_expiries, pick_expiries_for_horizons
 from src.utils import normal_params_from_quantiles, trading_days_between
@@ -19,7 +20,21 @@ def simulate_terminal_prices(
     T_years: float,
     n_sims: int = 50_000,
     seed: int = 7
-):
+) -> np.ndarray:
+    """simulate terminal underlying prices under a lognormal return assumption.
+
+    Args:
+        spot (float): current underlying spot price.
+        mu (float): mean of the forecast return distribution (log-return).
+        sigma (float): SD of the forecast return distribution
+        T_years (float): time to expiration (years).
+        n_sims (int, optional): number of monte carlo simulations. defaults to 
+            50_000.
+        seed (int, optional): random seed. defaults to 7.
+
+    Returns:
+        np.ndarray: simulated terminal price array of shape (n_sims).
+    """
     rng = np.random.default_rng(seed)
     z = rng.standard_normal(n_sims)
     r = mu + sigma * z
@@ -27,23 +42,46 @@ def simulate_terminal_prices(
     return ST 
 
 
-def payoff_call(ST, K):
+def payoff_call(ST: np.ndarray, K: float) -> np.ndarray:
+    """compute payoff of long call option at expiration."""
     return np.maximum(ST - K, 0.0)
 
 
-def payoff_put(ST, K):
+def payoff_put(ST: np.ndarray, K: float) -> np.ndarray:
+    """compute payoff of long put option at expiration."""
     return np.maximum(K - ST, 0.0)
 
 
-def payoff_vertical_call_spread(ST, K_long, K_short):
+def payoff_vertical_call_spread(
+    ST: np.ndarray, K_long: float, K_short: float
+) -> np.ndarray:
+    """compute payoff of a bull call vertical spread at expiration."""
     return payoff_call(ST, K_long) - payoff_call(ST, K_short)
 
 
-def payoff_vertical_put_spread(ST, K_short, K_long):
+def payoff_vertical_put_spread(
+    ST: np.ndarray, K_short: float, K_long: float
+) -> np.ndarray:
+    """compute payoff of a bear put vertical spread at expiration."""
     return payoff_put(ST, K_long) - payoff_put(ST, K_short)
 
 
-def bs_d1_d2(S, K, T, r, q, iv):
+def bs_d1_d2(
+    S: float, K: float, T: float, r: float, q: float, iv: float
+) -> Tuple[float, float]:
+    """compute black-scholes d1 and d2 parameters.
+
+    Args:
+        S (float): spot price.
+        K (float): strike price.
+        T (float): time to expiration (years).
+        r (float): risk-free rate.
+        q (float): dividend yield.
+        iv (float): implied volatility.
+
+    Returns:
+        Tuple[float, float]: (d1, d2) parameters used in BS pricing.
+    """
     if T <= 0 or iv <= 0:
         return np.nan, np.nan 
 
@@ -52,7 +90,29 @@ def bs_d1_d2(S, K, T, r, q, iv):
     return d1, d2
 
 
-def bs_price(S, K, T, r=0.04, q=0.0, iv=0.8, opt_type="call"):
+def bs_price(
+    S: float, 
+    K: float, 
+    T: float, 
+    r: float = 0.04, 
+    q: float = 0.0, 
+    iv: float = 0.8, 
+    opt_type: str = "call"
+) -> float:
+    """compute black-scholes theoretical option price.
+
+    Args:
+        S (float): spot price.
+        K (float): strike price.
+        T (float): time to expiration in years.
+        r (float, optional): risk-free rate. defaults to 0.04.
+        q (float, optional): dividend yield. defaults to 0.0.
+        iv (float, optional): implied volatility. defaults to 0.8.
+        opt_type (str, optional): 'call' or 'put'. defaults to 'call'.
+
+    Returns:
+        float: theoretical black-scholes option price.
+    """
     d1, d2 = bs_d1_d2(S, K, T, r, q, iv)
     if np.isnan(d1):
         return np.nan 
@@ -62,8 +122,31 @@ def bs_price(S, K, T, r=0.04, q=0.0, iv=0.8, opt_type="call"):
         return K * exp(-r*T) * norm.cdf(-d2) - S * exp(-q*T) * norm.cdf(-d1)
 
 
-def bs_prob_itm(S, K, T, r=0.04, q=0.0, iv=0.8, opt_type="call"):
-    """under BS risk-neutral, P(call ITM) ~ N(d2), P(put ITM) ~ N(-d2)"""
+def bs_prob_itm(
+    S: float, 
+    K: float, 
+    T: float, 
+    r: float = 0.04, 
+    q: float = 0.0, 
+    iv: float = 0.8, 
+    opt_type: str = "call"
+) -> float:
+    """estimate risk-neutral probability of finishing ITM under black-scholes.
+
+    under BS risk-neutral, P(call ITM) ~ N(d2), P(put ITM) ~ N(-d2)
+
+    Args:
+        S (float): spot price.
+        K (float): strike price.
+        T (float): time to expiration in years.
+        r (float, optional): risk-free rate. defaults to 0.04.
+        q (float, optional): dividend yield. defaults to 0.0.
+        iv (float, optional): implied volatility. defaults to 0.8.
+        opt_type (str, optional): 'call' or 'put'. defaults to 'call'.
+
+    Returns:
+        float: approximate risk-neutral probability of expiring ITM.
+    """
     d1, d2 = bs_d1_d2(S, K, T, r, q, iv)
     if np.isnan(d2):
         return np.nan 
@@ -71,6 +154,7 @@ def bs_prob_itm(S, K, T, r=0.04, q=0.0, iv=0.8, opt_type="call"):
 
 
 def mid_price(row: pd.Series) -> float:
+    """compute midpoint price from bid/ask with fallback to last trade."""
     b, a = row.get("bid", np.nan), row.get("ask", np.nan)
     if pd.notna(b) and pd.notna(a) and a > 0:
         return float((b + a) / 2)
@@ -90,6 +174,26 @@ def score_single_leg(
     q: float = 0.0,
     n_sims: int = 50_000
 ) -> pd.DataFrame:
+    """score single-leg options using monte carlo under model-implied distribution.
+
+    simulates terminal prices, computes payoff and PnL for each strike, and
+    estimates probability of ITM, probability of profit, and expected value.
+    also compares model-implied ITM probability to IV-implied probability.
+
+    Args:
+        chain (pd.DataFrame): option chain (calls or puts).
+        spot (float): current spot price.
+        mu (float): forecast mean return.
+        sigma (float): forecast return volatility.
+        T_years (float): time to expiration in years.
+        opt_type (str): 'call' or 'put'.
+        r (float, optional): risk-free rate. defaults to 0.04.
+        q (float, optional): eividend yield. defaults to 0.0.
+        n_sims (int, optional): monte carlo simulations. defaults to 50_000.
+
+    Returns:
+        pd.DataFrame: scored options sorted by EV and probability of profit.
+    """
     ST = simulate_terminal_prices(spot, mu, sigma, T_years, n_sims=n_sims)
 
     rows = []
@@ -152,6 +256,23 @@ def score_vertical_call_spreads(
     n_sims: int = 50_000,
     max_legs: int = 40
 ) -> pd.DataFrame:
+    """score bull call spreads using monte carlo under forecast distribution.
+
+    constructs candidate long/short call combinations and estimates expected
+    value, probability of profit, max profit, and max loss.
+
+    Args:
+        calls (pd.DataFrame): call option chain.
+        spot (float): current spot price.
+        mu (float): forecast mean return.
+        sigma (float): forecast return volatility.
+        T_years (float): time to expiration in years.
+        n_sims (int, optional): monte carlo simulations. defaults to 50_000.
+        max_legs (int, optional): limit on strikes evaluated. defaults to 40.
+
+    Returns:
+        pd.DataFrame: scored bull call spreads sorted by EV.
+    """
     ST = simulate_terminal_prices(spot, mu, sigma, T_years, n_sims=n_sims)
 
     calls2 = calls.copy()
@@ -214,6 +335,23 @@ def score_vertical_put_spreads(
     n_sims: int = 50_000,
     max_legs: int = 40
 ) -> pd.DataFrame:
+    """score bear put spreads using monte carlo under forecast distribution.
+
+    constructs candidate long/short call combinations and estimates expected
+    value, probability of profit, max profit, and max loss.
+
+    Args:
+        calls (pd.DataFrame): call option chain.
+        spot (float): current spot price.
+        mu (float): forecast mean return.
+        sigma (float): forecast return volatility.
+        T_years (float): time to expiration in years.
+        n_sims (int, optional): monte carlo simulations. defaults to 50_000.
+        max_legs (int, optional): limit on strikes evaluated. defaults to 40.
+
+    Returns:
+        pd.DataFrame: scored bear put spreads sorted by EV.
+    """
     ST = simulate_terminal_prices(spot, mu, sigma, T_years, n_sims=n_sims)
 
     puts2 = puts.copy()
@@ -276,7 +414,24 @@ def evaluate_options_across_expiries(
     r: float = 0.04,
     q: float = 0.0,
     n_sims: int = 50_000
-):
+) -> dict:
+    """evaluate options across forecast horizons and nearest listed expiries.
+
+    F\for each forecast horizon, maps to a listed expiration, derives the model-
+    implied return distribution from quantiles, scores single-leg options and
+    vertical spreads, and aggregates results into a structured dictionary.
+
+    Args:
+        ticker (str): underlying ticker symbol.
+        quantile_forecasts (pl.DataFrame): forecast output containing horizon,
+            spot, and return quantiles.
+        r (float, optional): risk-free rate. defaults to 0.04.
+        q (float, optional): dividend yield. defaults to 0.0.
+        n_sims (int, optional): monte carlo simulations. defaults to 50_000.
+
+    Returns:
+        dict: nested dictionary keyed by horizon containing scored options.
+    """
     quantile_forecasts = quantile_forecasts.to_pandas()
     asof = date.today()
     out = {}
@@ -345,12 +500,28 @@ def evaluate_options_across_expiries(
     return out
 
 
-def _normalize_results(results):
+def _normalize_results(results: dict) -> dict:
+    """normalize results dictionary keys to integers."""
     if isinstance(results, dict):
         return {int(k): v for k, v in results.items()}
 
 
-def parse_options_results(results, cols):
+def parse_options_results(
+    results: dict, cols: list
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """flatten nested option scoring results into summary and detail tables.
+
+    extracts summary statistics and concatenates calls, puts, and spread results
+    across horizons into unified DataFrames.
+
+    Args:
+        results (dict): nested results from evaluate_options_across_expiries.
+        cols (list): keys to extract for summary table.
+
+    Returns:
+        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+            summary, calls, puts, bull spreads, bear spreads.
+    """
     r = _normalize_results(results)
     summary_rows = []
     calls_parts = []
@@ -366,30 +537,178 @@ def parse_options_results(results, cols):
             row[c] = payload.get(c)
         summary_rows.append(row)
 
-        calls_df = pl.from_pandas(payload.get("calls"))
-        puts_df = pl.from_pandas(payload.get("puts"))
-        bull_df = pl.from_pandas(payload.get("bull_call_spreads"))
-        bear_df = pl.from_pandas(payload.get("bear_put_spreads"))
+        calls_df = payload.get("calls")
+        puts_df = payload.get("puts")
+        bull_df = payload.get("bull_call_spreads")
+        bear_df = payload.get("bear_put_spreads")
 
-        if calls_df is not None and calls_df.height > 0:
-            calls_parts.append(
-                calls_df.with_columns(pl.lit(h).alias("horizon"))
-            )
-        if puts_df is not None and puts_df.height > 0:
-            puts_parts.append(puts_df.with_columns(pl.lit(h).alias("horizon")))
-        if bull_df is not None and bull_df.height > 0:
-            bull_call_parts.append(
-                bull_df.with_columns(pl.lit(h).alias("horizon"))
-            )
-        if bear_df is not None and bear_df.height > 0:
-            bear_put_parts.append(
-                bear_df.with_columns(pl.lit(h).alias("horizon"))
-            )
+        if isinstance(calls_df, pd.DataFrame) and not calls_df.empty:
+            calls_parts.append(calls_df.assign(horizon=h))
+        if isinstance(puts_df, pd.DataFrame) and not puts_df.empty:
+            puts_parts.append(puts_df.assign(horizon=h))
+        if isinstance(bull_df, pd.DataFrame) and not bull_df.empty:
+            bull_call_parts.append(bull_df.assign(horizon=h))
+        if isinstance(bear_df, pd.DataFrame) and not bear_df.empty:
+            bear_put_parts.append(bear_df.assign(horizon=h))
 
-    summary_df = pl.DataFrame(summary_rows).select(["horizon", *cols])
-    calls_out = pl.concat(calls_parts, how="vertical_relaxed") if calls_parts else pl.DataFrame({"horizon": []})
-    puts_out = pl.concat(puts_parts, how="vertical_relaxed") if puts_parts else pl.DataFrame({"horizon": []})
-    bull_calls_out = pl.concat(bull_call_parts, how="vertical_relaxed") if bull_call_parts else pl.DataFrame({"horizon": []})
-    bear_puts_out = pl.concat(bear_put_parts, how="vertical_relaxed") if bear_put_parts else pl.DataFrame({"horizon": []})
+    summary_df = pd.DataFrame(summary_rows, columns=["horizon", *cols])
+    calls_out = pd.concat(calls_parts, ignore_index=True) if calls_parts else pd.DataFrame({"horizon": []})
+    puts_out = pd.concat(puts_parts, ignore_index=True) if puts_parts else pd.DataFrame({"horizon": []})
+    bull_calls_out = pd.concat(bull_call_parts, ignore_index=True) if bull_call_parts else pd.DataFrame({"horizon": []})
+    bear_puts_out = pd.concat(bear_put_parts, ignore_index=True) if bear_put_parts else pd.DataFrame({"horizon": []})
 
     return summary_df, calls_out, puts_out, bull_calls_out, bear_puts_out
+
+
+def option_score_single_leg(
+    ev_model_per_contract: float, 
+    premium_mid: float, 
+    pop_model: float, 
+    edge_itm: float
+) -> float:
+    """compute composite score for ranking single-leg options."""
+    edge_wt = 1 / (1 + np.exp(-edge_itm * 10))
+    return (ev_model_per_contract / (premium_mid * 100)) * pop_model * edge_wt
+
+
+def make_trade_gates_single_leg(
+    ev_model_per_contract: float, 
+    edge_itm: float, 
+    pop_model: float,
+    empc_threshold: int = 10,
+    ei_threshold: float = 0.03,
+    pop_threshold: float = 0.45,
+) -> float:
+    """evaluate trade gating criteria for single-leg options."""
+    passes = 0
+    if ev_model_per_contract > empc_threshold:
+        passes += 1
+    if edge_itm > ei_threshold:
+        passes += 1
+    if pop_model > pop_threshold:
+        passes += 1
+
+    return passes / 3
+
+
+def option_score_spread_roi(ev_per_contract: float, max_loss: float) -> float:
+    """compute expected return on risk for a vertical spread."""
+    return ev_per_contract / max_loss 
+
+
+def option_score_spread_efficiency(
+    ev_per_contract: float, max_loss: float, pop_model: float
+) -> float:
+    """compute risk-adjuted efficiency score for a spread."""
+    return (ev_per_contract / max_loss) * pop_model 
+
+
+def option_score_spread_max_ratio(max_profit: float, max_loss: float) -> float:
+    """compute reward-to-risk ratio for a spread."""
+    return max_profit / max_loss 
+
+
+def score_options_results(
+    results: dict,
+    empc_threshold: int = 10,
+    ei_threshold: float = 0.03,
+    pop_threshold: float = 0.45,
+    mr_threshold: float = 0.50,
+    loss_threshold: int = 100
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """aggregate and rank scored options into decision-ready tables.
+
+    applies trade gates and scoring functions to single-leg and spread
+    results, filters by risk constraints, and returns top candidates
+    per horizon and structure.
+
+    Args:
+        results (dict): nested output from evaluate_options_across_expiries.
+        empc_threshold (int, optional): EV threshold for single legs.
+        ei_threshold (float, optional): edge threshold for single legs.
+        pop_threshold (float, optional): probability threshold.
+        mr_threshold (float, optional): minimum reward-to-risk for spreads.
+        loss_threshold (int, optional):maximum allowed risk per spread.
+
+    Returns:
+        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+            summary table, top single-leg candidates, top spread candidates.
+    """
+    cols_list = [
+        "expiry",
+        "mu",
+        "sigma",
+        "spot",
+        "pred_q10_px",
+        "pred_q50_px",
+        "pred_q90_px"
+    ]
+
+    summary_res, call_res, put_res, bull_res, bear_res = parse_options_results(
+        results, cols_list
+    )
+
+    single_leg_res = pd.concat([call_res, put_res])
+
+    single_leg_res.query(
+        f"ev_model_per_contract > 0 & edge_itm > 0 & pop_model > {pop_threshold}",
+        inplace=True
+    )
+
+    single_leg_res["option_score"] = single_leg_res.apply(
+        lambda x: option_score_single_leg(
+            x["ev_model_per_contract"], x["premium_mid"], x["pop_model"], x["edge_itm"]
+        ), axis=1
+    )
+
+    single_leg_res["outcome_score"] = single_leg_res.apply(
+        lambda x: make_trade_gates_single_leg(
+            x["ev_model_per_contract"], x["edge_itm"], x["pop_model"]
+        ), axis=1
+    )
+
+    spread_res = pd.concat([bull_res, bear_res])
+
+    spread_res.query(
+        f"ev_per_contract > 0 & pop_model > {pop_threshold}", inplace=True
+    )
+
+    spread_res["roi_ev"] = spread_res.apply(
+        lambda x: option_score_spread_roi(x["ev_per_contract"], x["max_loss"]),
+        axis=1
+    )
+
+    spread_res["efficiency_score"] = spread_res.apply(
+        lambda x: option_score_spread_efficiency(
+            x["ev_per_contract"], x["max_loss"], x["pop_model"]
+        ), axis=1
+    )
+
+    spread_res["profit_ratio"] = spread_res.apply(
+        lambda x: option_score_spread_max_ratio(
+            x["max_profit"], x["max_loss"]
+        ), axis=1
+    )
+
+    spread_res.query(
+        f"profit_ratio >= {mr_threshold} & max_loss <= {loss_threshold}",
+        inplace=True
+    )
+
+    return (
+        summary_res,
+
+        single_leg_res.sort_values(
+            ["horizon", "option_score"],
+            ascending=[True, False]
+        ).groupby(
+            ["horizon", "type"]
+        ).head(5),
+
+        spread_res.sort_values(
+            ["horizon", "efficiency_score"], 
+            ascending=[True, False]
+        ).groupby(
+            ["horizon", "spread"]
+        ).head(5)
+    )
