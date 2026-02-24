@@ -8,6 +8,7 @@ import pandas as pd
 import polars as pl
 from datetime import datetime
 from typing import Tuple, Dict, List, Optional 
+import numpy as np
 
 from src.load_data import load_stocks
 from src.utils import build_forecast_dates
@@ -25,7 +26,7 @@ def train_and_forecast_xgb_options(
     label_mode: str = "log_return",
     n_estimators: int = 400,
     learning_rate: float = 0.03,
-) -> Tuple[pl.DataFrame, Dict[int, float]]:
+) -> Tuple[pl.DataFrame, Dict[int, float], Dict[int, float]]:
     """full pipeline for forecasting options.
 
     for each horizon, train model(s) and forecast expiry distribution. returns
@@ -49,14 +50,16 @@ def train_and_forecast_xgb_options(
             defaults to 0.03.
 
     Returns:
-        Tuple[pl.DataFrame, Dict[int, float]]: dataframe of predicted values per
-            horizon and the RMSE from training.
+        Tuple[pl.DataFrame, Dict[int, float], Dict[int, float]]: dataframe of p
+            redicted values per horizon and the RMSE from training and the 
+            improvements.
     """
     stocks = [ticker]
     df_raw = load_stocks(stocks, start_date, end_date, use_polars=True)
 
     forecasts = []
     rmses: Dict[int, float] = {}
+    improvements: Dict[int, float] = {}
 
     for h in horizons:
         models, rmse, df_feat, feature_cols = train_xgb_model(
@@ -73,6 +76,27 @@ def train_and_forecast_xgb_options(
         )
         rmses[h] = rmse 
 
+        y_test = (
+            df_feat
+            .filter(pl.col("date") >= cutoff)
+            .select("label")
+            .to_numpy()
+            .ravel()
+        )
+
+        rmse_zero = (
+            float(np.sqrt(np.mean(np.square(y_test)))) 
+            if len(y_test) 
+            else np.nan
+        )
+
+        improvement = (
+            float(1.0 - (rmse / rmse_zero))
+            if np.isfinite(rmse_zero) and rmse_zero > 0
+            else np.nan
+        )
+        improvements[h] = improvement
+
         forecaster = XGBExpiryForecaster(
             models=models, feature_cols=feature_cols, label_mode=label_mode
         )
@@ -81,7 +105,7 @@ def train_and_forecast_xgb_options(
         )
         forecasts.append(fc)
 
-    return pl.concat(forecasts, how="vertical"), rmses
+    return pl.concat(forecasts, how="vertical"), rmses, improvements
 
 
 def train_and_forecast_xgb(
